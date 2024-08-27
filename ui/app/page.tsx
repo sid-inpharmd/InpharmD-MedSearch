@@ -5,7 +5,6 @@ import { formatTimeDifference } from '@/lib/utils';
 import { BookOpenText, ClockIcon, Delete, ScanEye } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-
 export interface Chat {
   id: string;
   title: string;
