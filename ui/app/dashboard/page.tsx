@@ -3,7 +3,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AWS from 'aws-sdk';
-
 // AWS S3 configuration
 const s3 = new AWS.S3({
   region: 'us-east-1',
@@ -12,7 +11,6 @@ const s3 = new AWS.S3({
     secretAccessKey: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY as string,
   }),
 });
-
 // Separate component for PDF viewer
 const PDFViewer = React.memo(({ files, currentIndex }: { files: File[], currentIndex: number }) => {
   return (
@@ -27,41 +25,6 @@ const PDFViewer = React.memo(({ files, currentIndex }: { files: File[], currentI
     </div>
   );
 });
-
-// Letter animation loading component
-const LetterAnimation = ({ text }: { text: string }) => {
-  return (
-    <div className="flex items-center justify-center w-full h-full">
-      <div className="text-white text-xl font-bold">
-        {text.split('').map((letter, index) => (
-          <span
-            key={index}
-            className={`inline-block transition-transform duration-500 ease-in-out transform ${
-              index % 2 === 0 ? 'translate-y-2' : 'translate-y-0'
-            }`}
-            style={{ animation: `letterAnimation ${1 + index / 10}s infinite` }}
-          >
-            {letter}
-          </span>
-        ))}
-      </div>
-      <style jsx>{`
-        @keyframes letterAnimation {
-          0% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-          100% {
-            transform: translateY(0);
-          }
-        }
-      `}</style>
-    </div>
-  );
-};
-
 const DashboardPage = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
@@ -70,18 +33,15 @@ const DashboardPage = () => {
     new Map()
   );
   const [currentIndex, setCurrentIndex] = useState<number>(0);
-
   // Loading states for individual file
   const [loadingStates, setLoadingStates] = useState<Map<number, { summaryTable: boolean, overallSummary: boolean, pdfTables: boolean }>>(
     new Map()
   );
-
   const onDrop = useCallback((acceptedFiles: File[]) => {
     setFiles(acceptedFiles);
     setCurrentIndex(0); // Reset index when new files are dropped
     window.history.pushState({ files: acceptedFiles }, 'PDF Viewer'); // Push state to history
   }, []);
-
   useEffect(() => {
     if (files.length > 0) {
       const uploadFilesToS3 = async () => {
@@ -94,26 +54,21 @@ const DashboardPage = () => {
               Body: file,
               ContentType: file.type,
             };
-
             const uploadResponse = await s3.upload(params).promise();
             console.log('S3 Upload Response:', uploadResponse);
-
             const pdfUrl = uploadResponse.Location;
             uploadedUrls.push(pdfUrl);
-
             // Initialize file data and loading states
             setFileData(prev => new Map(prev).set(files.indexOf(file), {
               summaryTableContent: '',
               overallSummaryContent: '',
               pdfTablesContent: '',
             }));
-
             setLoadingStates(prev => new Map(prev).set(files.indexOf(file), {
               summaryTable: true,
               overallSummary: true,
               pdfTables: true,
             }));
-
             // Fetch summaries or tables for each PDF in sequence
             await fetchSummaryTable(pdfUrl, files.indexOf(file));
             await fetchPdfTables(pdfUrl, files.indexOf(file));
@@ -124,13 +79,11 @@ const DashboardPage = () => {
           console.error('Error uploading file to S3:', error);
         }
       };
-
       uploadFilesToS3();
     } else {
       window.history.pushState({}, 'Upload Page'); // Reset state when files are cleared
     }
   }, [files]);
-
   const deleteFilesFromS3 = async () => {
     try {
       for (const fileUrl of uploadedFiles) {
@@ -146,20 +99,16 @@ const DashboardPage = () => {
       console.error('Error deleting files from S3:', error);
     }
   };
-
   useEffect(() => {
     const handleBeforeUnload = async () => {
       await deleteFilesFromS3();
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       handleBeforeUnload(); // Call cleanup when component unmounts
     };
   }, [uploadedFiles]);
-
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.files) {
@@ -168,14 +117,11 @@ const DashboardPage = () => {
         setFiles([]);
       }
     };
-
     window.addEventListener('popstate', handlePopState);
-
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
-
   const fetchSummaryTable = async (pdfUrl: string, index: number) => {
     setLoadingStates(prev => new Map(prev).set(index, { ...prev.get(index), summaryTable: true }));
     try {
@@ -185,17 +131,15 @@ const DashboardPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: 'What is in the pdf/paper.',
+          query: 'Summarize all tables in the document.',
           retrieval_type: 'tables',
           pdf_urls: [pdfUrl],
           format: 'html',
         }),
       });
-
       if (!response.ok) {
         throw new Error('Failed to fetch summary table');
       }
-
       const data = await response.json();
       const summaryTableContent = data[0]?.response || 'No content available';
       setFileData(prev => new Map(prev).set(index, {
@@ -212,7 +156,6 @@ const DashboardPage = () => {
       setLoadingStates(prev => new Map(prev).set(index, { ...prev.get(index), summaryTable: false }));
     }
   };
-
   const fetchOverallSummary = async (pdfUrl: string, index: number) => {
     setLoadingStates(prev => new Map(prev).set(index, { ...prev.get(index), overallSummary: true }));
     try {
@@ -228,11 +171,9 @@ const DashboardPage = () => {
           format: 'html',
         }),
       });
-
       if (!response.ok) {
         throw new Error('Failed to fetch overall summary');
       }
-
       const data = await response.json();
       const overallSummaryContent = data[0]?.response || 'No content available';
       setFileData(prev => new Map(prev).set(index, {
@@ -249,7 +190,6 @@ const DashboardPage = () => {
       setLoadingStates(prev => new Map(prev).set(index, { ...prev.get(index), overallSummary: false }));
     }
   };
-
   const fetchPdfTables = async (pdfUrl: string, index: number) => {
     setLoadingStates(prev => new Map(prev).set(index, { ...prev.get(index), pdfTables: true }));
     try {
@@ -262,18 +202,14 @@ const DashboardPage = () => {
           url: pdfUrl,
         }),
       });
-
       if (!response.ok) {
         throw new Error('Failed to fetch PDF tables');
       }
-
       const data = await response.json();
       let tablesHtml = '';
-
       if (Array.isArray(data.Tables)) {
         tablesHtml = data.Tables.map((table: any, tableIndex: number) => {
           const rows = table.Table;
-
           if (rows) {
             const rowsHtml = Object.values(rows)
               .map((row: any) => {
@@ -286,7 +222,6 @@ const DashboardPage = () => {
                 return `<tr>${cellsHtml}</tr>`;
               })
               .join('');
-
             if (rowsHtml) {
               return `
                 <table key=${tableIndex} class="table-auto w-full border-collapse border border-gray-700 mb-4 text-white">
@@ -302,14 +237,12 @@ const DashboardPage = () => {
       } else {
         tablesHtml = '<p class="text-white">No tables found in the PDF.</p>';
       }
-
       setFileData(prev => new Map(prev).set(index, {
         ...prev.get(index),
         pdfTablesContent: tablesHtml,
       }));
     } catch (error) {
       console.error('Error fetching PDF tables:', error);
-
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setFileData(prev => new Map(prev).set(index, {
         ...prev.get(index),
@@ -319,27 +252,24 @@ const DashboardPage = () => {
       setLoadingStates(prev => new Map(prev).set(index, { ...prev.get(index), pdfTables: false }));
     }
   };
-
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
-
   return (
-    <div className="flex h-screen bg-gray">
+    <div className="flex h-screen bg-black">
       {files.length > 0 ? (
         <>
           <div className="relative w-1/2 h-full">
             <PDFViewer files={files} currentIndex={currentIndex} />
-
             {files.length > 1 && (
               <div className="absolute top-1/2 left-0 right-0 flex justify-between items-center px-4">
                 <button
-                  className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600"
+                  className="bg-black text-white p-2 rounded-full hover:bg-black"
                   onClick={() => setCurrentIndex((prevIndex) => Math.max(prevIndex - 1, 0))}
                   disabled={currentIndex === 0}
                 >
                   &lt;
                 </button>
                 <button
-                  className="bg-gray-700 text-white p-2 rounded-full hover:bg-gray-600"
+                  className="bg-black text-white p-2 rounded-full hover:bg-black"
                   onClick={() => setCurrentIndex((prevIndex) => Math.min(prevIndex + 1, files.length - 1))}
                   disabled={currentIndex === files.length - 1}
                 >
@@ -348,9 +278,8 @@ const DashboardPage = () => {
               </div>
             )}
           </div>
-
-          <div className="w-1/2 p-4 flex flex-col bg-gray-900 h-full">
-            <div className="flex space-x-10 mb-4 border-b border-gray-700">
+          <div className="w-1/2 p-4 flex flex-col bg-black h-full">
+            <div className="flex space-x-10 mb-4 border-b border-black">
               {['Summary Table', 'PDF Tables', 'Overall Summary'].map((option, index) => (
                 <div
                   key={index}
@@ -368,7 +297,10 @@ const DashboardPage = () => {
             <div className="text-white p-4 flex-grow overflow-y-auto">
               {activeTab === 'Summary Table' && (
                 loadingStates.get(currentIndex)?.summaryTable ? (
-                  <LetterAnimation text="Loading summary table..." />
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <div className="text-lg font-bold mb-4">Loading...</div>
+                    <div className="w-8 h-8 border-4 border-t-4 border-white border-solid rounded-full animate-spin"></div>
+                  </div>
                 ) : (
                   <div
                     className="prose prose-invert"
@@ -378,7 +310,10 @@ const DashboardPage = () => {
               )}
               {activeTab === 'PDF Tables' && (
                 loadingStates.get(currentIndex)?.pdfTables ? (
-                  <LetterAnimation text="Loading PDF tables..." />
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <div className="text-lg font-bold mb-4">Loading...</div>
+                    <div className="w-8 h-8 border-4 border-t-4 border-white border-solid rounded-full animate-spin"></div>
+                  </div>
                 ) : (
                   <div
                     className="prose prose-invert"
@@ -388,7 +323,10 @@ const DashboardPage = () => {
               )}
               {activeTab === 'Overall Summary' && (
                 loadingStates.get(currentIndex)?.overallSummary ? (
-                  <LetterAnimation text="Loading overall summary..." />
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <div className="text-lg font-bold mb-4">Loading...</div>
+                    <div className="w-8 h-8 border-3 border-t-3 border-white border-solid rounded-full animate-spin"></div>
+                  </div>
                 ) : (
                   <div
                     className="prose prose-invert"
@@ -402,7 +340,7 @@ const DashboardPage = () => {
       ) : (
         <div
           {...getRootProps()}
-          className={`flex flex-col items-center justify-center w-full max-w-xl p-16 border-2 border-dashed rounded-lg cursor-pointer bg-gray-800 m-auto transition-colors duration-300 ${
+          className={`flex flex-col items-center justify-center w-full max-w-xl p-16 border-2 border-dashed rounded-lg cursor-pointer bg-black m-auto transition-colors duration-300 ${
             isDragActive ? 'border-orange-500' : 'border-gray-600'
           }`}
         >
@@ -419,5 +357,4 @@ const DashboardPage = () => {
     </div>
   );
 };
-
 export default DashboardPage;
